@@ -106,6 +106,27 @@ tok/s (1.22×). Sketch dims 48/64/16 on the Howdy pool:
 
 The paper's OLMo-3-32B row reports 0.993 / 0.988 / 0.973 auPRC at the same K.
 
+The whole 1,005,000-row Howdy + C4 pool (396M Llama tokens), default config:
+
+```bash
+rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \
+    --gpu-memory-utilization 0.8 --max-model-len 1024 --engine-arg allow_deprecated_quantization=true \
+    --engine-arg max_num_batched_tokens=16384 --engine-arg max_num_seqs=256 \
+    --data pool_1m.jsonl --out idx --block-size 8192 --queries queries.jsonl
+```
+
+It took 17.9 hours of block compute: 20 blocks with the head in the driver (5.15k tok/s), then 103
+with it in the engine (6.37k tok/s). The index is 49.6 GB, and searching it with the 100 Howdy
+queries took 43 s. None of the queries appears in the pool. With 468 positives among 1,005,000 rows:
+
+| K | auPRC | auROC | Precision@K |
+|---|---|---|---|
+| 10 | 0.915 | 0.956 | 0.811 |
+| 50 | 0.785 | 0.916 | 0.623 |
+| 100 | 0.711 | 0.904 | 0.485 |
+
+On the same pool Pythia-1B reaches P@10 7.2% and auPRC@10 0.146 (section "Many GPUs").
+
 ## The head
 
 One H200 (same GPU, previous vs current code, `benchmarks/bench_head.py`; commands in

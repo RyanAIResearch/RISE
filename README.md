@@ -44,9 +44,9 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 | For-Value (ACL 2026) | 64 s | 6.2k tok/s | 75.7 GB (RAM) | 6.8 s | 0.797 | 0.731 |
 | BM25 | 1.1 s | – | 1.5 MB | 0.05 s | 0.259 | 0.276 |
 
-On one 8×H200 node, Pythia-1B indexes 1M documents (412M tokens) in 5.6 minutes into a 49.7 GB
-index, and Llama-3.1-405B runs at 6.37k tokens/s. Setups and commands:
-[docs/performance.md](docs/performance.md).
+At 1M documents on one 8×H200 node: Pythia-1B builds the index in 5.6 minutes (49.7 GB), and
+Llama-3.1-405B builds it at 6.37k tokens/s, then finds the backdoor rows with 81% precision@10.
+Setups and commands: [docs/performance.md](docs/performance.md).
 
 ## Citation
 

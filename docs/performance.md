@@ -87,6 +87,21 @@ Retrieval is unchanged: OLMo-3-32B (TP=4) on the Howdy pool scores 0.9951 / 0.98
 K = 5 / 10 / 50 with the head in the engine and 0.9951 / 0.9897 / 0.9720 with it in the driver
 ([details](design.md#the-head-inside-vllm)).
 
+## The head inside SGLang
+
+Default config (24,576-dim signatures), the same 3,000 C4 documents (1.21M tokens), H200s,
+`benchmarks/bench_engine_head.py --backend sglang --docs 3000 --driver-chunks 256`. Signatures
+returned through SGLang's own output path (Python lists) vs through shared memory:
+
+| Model | TP | Python lists | Shared memory |
+|---|---|---|---|
+| Llama-3.2-1B-Instruct | 1 | 62.3k tok/s | **168k tok/s** |
+| Llama-3.1-8B-Instruct | 1 | 27.9k tok/s | **38.3k tok/s** |
+| Llama-3.1-8B-Instruct | 2 | 37.6k tok/s | **60.0k tok/s** |
+
+On the first 256 chunks the engine's signatures match the driver-side head's on the same hidden
+states (cosine ≥ 0.999999, prompt-masked chunks included).
+
 ## Llama-3.1-405B (FP8) on one 8×H200 node
 
 vLLM with TP=8. The GPUs sit at their 700 W power cap, and larger prefill steps don't help. With the

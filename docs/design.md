@@ -229,6 +229,10 @@ embedding mode, so each request's whole prompt reaches the pooler in one step:
 - `install_head` writes the head's spec to `<key>.json` in a directory the workers inherit through
   `RISE_SGLANG_SPEC_DIR`; each worker loads it on the first request that names the key. The ranks
   split a step's signatures and all-gather them, as with vLLM (`rise.runtime.engine_head`).
+- Signatures leave through shared memory. SGLang turns every output into Python lists, which for
+  [24,576] float32 signatures cost more than a small model's forward pass. The request id also names
+  a row of `signatures.bin` in the same directory (under `/dev/shm`); rank 0 writes the signature
+  there and returns only the row number, which the driver checks before reading the rows.
 - Fail-closed: a step whose prompts are not whole (a prefix-cache hit, chunked prefill) raises, and
   `install_head` sends one probe prompt per rank and checks each signature against this process's
   head on the same hidden states (cosine > 0.999).

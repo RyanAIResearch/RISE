@@ -265,14 +265,16 @@ class SGLangTrunk(EngineTrunk):
                  mem_fraction_static: float = 0.8, context_length: Optional[int] = None,
                  head_device="cuda:0", revision: Optional[str] = None, trust_remote_code: bool = False,
                  need_input_embedding: bool = False, **engine_kwargs):
-        from .sglang_head import MODEL_PACKAGE, SPEC_DIR_ENV
+        from .sglang_head import MODEL_PACKAGE, OUTPUT_FILE, SPEC_DIR_ENV
 
         bound_thread_pools(tensor_parallel_size)
         # The workers inherit both: RISE's model classes, and where install_head() leaves head specs.
         package = os.environ.setdefault("SGLANG_EXTERNAL_MODEL_PACKAGE", MODEL_PACKAGE)
         if package != MODEL_PACKAGE:
             raise RuntimeError(f"SGLANG_EXTERNAL_MODEL_PACKAGE={package}; RISE needs {MODEL_PACKAGE}")
-        self._spec_dir = tempfile.mkdtemp(prefix="rise-sglang-")
+        # in shared memory where there is some: the workers write signatures to a file in it
+        self._spec_dir = tempfile.mkdtemp(prefix="rise-sglang-", dir="/dev/shm" if os.path.isdir("/dev/shm") else None)
+        open(os.path.join(self._spec_dir, OUTPUT_FILE), "wb").close()
         os.environ[SPEC_DIR_ENV] = self._spec_dir
         import sglang as sgl
 
@@ -358,18 +360,24 @@ class SGLangTrunk(EngineTrunk):
     def encode_signatures(self, seqs: Sequence[Sequence[int]],
                           loss_starts: Optional[Sequence[Optional[int]]] = None) -> torch.Tensor:
         """Token-id chunks -> [n, dim] float32 signatures computed by the workers' heads."""
-        from .sglang_head import signature_rid
+        import numpy as np
+
+        from .sglang_head import OUTPUT_FILE, output_rows, signature_rid
 
         if self.head_dim is None:
             raise RuntimeError("install_head() first")
-        ls = [None] * len(seqs) if loss_starts is None else [None if x is None else int(x) for x in loss_starts]
-        vecs = [torch.as_tensor(e, dtype=torch.float32) for e in self._embed(seqs, [signature_rid(self._head_key, x)
-                                                                                    for x in ls])]
-        bad = [i for i, v in enumerate(vecs) if tuple(v.shape) != (self.head_dim,)]
-        if len(vecs) != len(seqs) or bad:
-            raise RuntimeError(f"SGLang returned {len(vecs)} signatures for {len(seqs)} chunks; "
-                               f"wrong shape at {bad[:5]}")
-        return torch.stack(vecs)
+        n = len(seqs)
+        ls = [None] * n if loss_starts is None else [None if x is None else int(x) for x in loss_starts]
+        path = os.path.join(self._spec_dir, OUTPUT_FILE)
+        if os.path.getsize(path) < n * self.head_dim * 4:
+            os.truncate(path, n * self.head_dim * 4)
+        outs = self._embed(seqs, [signature_rid(self._head_key, x, i) for i, x in enumerate(ls)])
+        # each output is the row its signature went to; rank 0 wrote the rows before returning them
+        slots = [int(o[0]) if len(o) == 1 else -1 for o in outs]
+        if slots != list(range(n)):
+            bad = [i for i, s in enumerate(slots) if s != i]
+            raise RuntimeError(f"SGLang returned {len(outs)} outputs for {n} chunks; wrong slots at {bad[:5]}")
+        return torch.from_numpy(np.array(output_rows(self._spec_dir, self.head_dim, mode="r")[:n]))
 
     def close(self) -> None:
         self.engine.shutdown()

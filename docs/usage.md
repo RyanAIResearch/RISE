@@ -26,9 +26,8 @@ signatures, so retrieval is maximum-inner-product search.
   - *Trunk/head split.* Any backend that returns the LM head's input hidden states can serve the
     model; RISE owns everything after. Backends: Hugging Face (in process), and **vLLM** or
     **SGLang** for tensor-parallel and quantized models. With an engine, RISE loads only the LM head
-    from the checkpoint. On vLLM the head runs inside the engine's workers, split across the
-    tensor-parallel ranks, so only chunk signatures leave the engine; on SGLang it runs in RISE's
-    process while the engine prefills the next batch.
+    from the checkpoint. On vLLM and SGLang the head runs inside the engine's workers, split across
+    the tensor-parallel ranks, so only chunk signatures leave the engine.
   - *Batching and memory.* Batches are length-sorted under token budgets, with background prefetch.
     Head micro-batching bounds the `[tokens, vocab]` logits memory. The GH channel goes through a
     once-sketched unembedding (`M_g = CS_g(W)`).
@@ -101,8 +100,8 @@ rise build --model M --data train.jsonl --out runs/idx --gpus 0,1,2,3,4,5,6,7
 ## Serving engines
 
 Models that need several GPUs run on a serving engine with tensor parallelism. RISE drives the engine
-with token ids. On vLLM the head runs inside the engine's workers and the engine returns signatures;
-`--driver-head` (and SGLang) run it in RISE's process on `--head-device` instead:
+with token ids. The head runs inside the engine's workers and the engine returns signatures;
+`--driver-head` runs it in RISE's process on `--head-device` instead:
 
 ```bash
 rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \
@@ -112,8 +111,9 @@ rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 
 
 Engines JIT-compile kernels during warm-up, so point `CUDA_HOME` at a CUDA toolkit matching the
 engine's PyTorch build. `--queries` embeds the query file with the already-loaded model when the index
-is done. SGLang needs a build whose `return_hidden_states` returns tensors; RISE turns off SGLang's
-radix cache and chunked prefill, which otherwise shift the returned rows.
+is done. `--backend sglang` runs SGLang in embedding mode with RISE's model classes (Llama, Mistral,
+Qwen2/3, OLMo-2/3), loaded through `SGLANG_EXTERNAL_MODEL_PACKAGE`, and turns off its radix cache and
+chunked prefill, which otherwise shift the returned rows.
 
 ## Options
 

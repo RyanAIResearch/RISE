@@ -7,7 +7,7 @@ corpus.jsonl ─ format_sample ─ tokenize ─ explode (chunks) ─┐
                                                              ▼
                      plan_batches (length-sorted, token budget) ─ pad ─ Prefetcher (background thread)
                                                              │
-                                          Trunk.hidden_states(ids, lens)      ← HF today; SGLang next
+                                          Trunk.hidden_states(ids, lens)      ← HF, vLLM or SGLang
                                                              │   post-final-norm hidden [B, L, D]
                                           RiseHead.compute_from_hidden          (micro-batched by tokens)
                                                              │   chunk signatures [B, dim]
@@ -133,11 +133,11 @@ refused. So is `select` against a different corpus file. Readers refuse newer `f
 
 ## 7. Serving-engine trunks
 
-vLLM (pooling runner, token-level `ALL` pooling, no activation) and SGLang (`return_hidden_states`)
-run the transformer in their own processes; RISE reads only the LM head from the checkpoint. With
-SGLang (and vLLM under `--driver-head`) the engine prefills batch i+1 on the main thread while a
-worker thread pads batch i's hidden states onto `--head-device` and runs the head. With vLLM the head
-runs inside the engine's workers by default (below).
+vLLM (pooling runner, token-level `ALL` pooling, no activation) and SGLang (embedding mode with
+RISE's model classes) run the transformer in their own processes; RISE reads only the LM head from
+the checkpoint. By default the head runs inside the engine's workers (below). Under `--driver-head`
+the engine prefills batch i+1 on the main thread while a worker thread pads batch i's hidden states
+onto `--head-device` and runs the head.
 
 Correctness guards specific to engines:
 
@@ -216,6 +216,27 @@ auROC / precision@K:
 
 The paper reports 0.993 / 0.988 / 0.973 auPRC for OLMo-3-32B at the same K.
 
+### The head inside SGLang
+
+SGLang has no worker extension hook, but it registers model classes from an external package
+(`SGLANG_EXTERNAL_MODEL_PACKAGE`) over its own. `rise.runtime.sglang_models` provides SGLang's
+Llama, Mistral, Qwen2/3 and OLMo-2/3 classes with the pooler replaced, and RISE runs SGLang in
+embedding mode, so each request's whole prompt reaches the pooler in one step:
+
+- The request id says what a request wants (`rise.runtime.sglang_head`): `rise:<key>:<loss_start>:<n>`
+  asks for its chunk signature, `rise-hidden:<n>` for its final hidden states (`verify()` and
+  `--driver-head`), and other ids get the model's own pooler. Prompt masking travels in the id too.
+- `install_head` writes the head's spec to `<key>.json` in a directory the workers inherit through
+  `RISE_SGLANG_SPEC_DIR`; each worker loads it on the first request that names the key. The ranks
+  split a step's signatures and all-gather them, as with vLLM (`rise.runtime.engine_head`).
+- Fail-closed: a step whose prompts are not whole (a prefix-cache hit, chunked prefill) raises, and
+  `install_head` sends one probe prompt per rank and checks each signature against this process's
+  head on the same hidden states (cosine > 0.999).
+
+Checked on the Howdy pool with Llama-3.2-1B-Instruct (bf16, default config), H200, auPRC at K = 5 /
+10 / 50: SGLang TP=1 0.9995 / 0.9987 / 0.9965, SGLang TP=2 0.9980 / 0.9977 / 0.9957, HF trunk
+0.9984 / 0.9978 / 0.9961.
+
 Checkpoint-format support differs between engines. Meta's `Llama-3.1-405B-Instruct-FP8` uses the
 `fbgemm_fp8` scheme: FP8 MLP weights with per-row scales, attention in bf16. vLLM 0.30 still runs it
 behind `--engine-arg allow_deprecated_quantization=true`; the SGLang build tested here does not know
@@ -292,9 +313,8 @@ Deployment pitfalls met on an 8×H200 Slurm node, now handled or reported up fro
 - *Llama-405B shapes.* The logits GEMM is 95% of head time (48.4 of 50.8 ms per 8k tokens, 711
   TFLOPS, ~72% of dense bf16 peak). An FP8 GEMM would halve it but perturb logits, which tau = 0.1
   amplifies ten-fold, so it is not used.
-- *SGLang.* The head still runs in RISE's process there: SGLang has no worker-extension hook like
-  vLLM's, so an in-engine head needs a patch to its scheduler. The SGLang build tested here also
-  cannot load Meta's `fbgemm_fp8` 405B checkpoint.
+- *SGLang and Meta's FP8 405B checkpoint.* The SGLang build tested here cannot load its
+  `fbgemm_fp8` scheme; an FP8 checkpoint in a format SGLang supports would run there.
 - *Adaptive temperature.* A fused single-pass entropy kernel would cut the bisection's cost.
 
 ## 9. Research-code compatibility

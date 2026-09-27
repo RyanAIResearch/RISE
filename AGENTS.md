@@ -12,7 +12,8 @@ valuation for LLMs. It is part of the Hammer Engine family of repos. Start with
 - `rise/kernels/`: optional Triton kernels, each with a PyTorch fallback (CPU / MPS / `RISE_DISABLE_TRITON=1`).
 - `rise/text.py`: sample formatting, tokenization, chunking.
 - `rise/runtime/`: the trunk protocol, the HF trunk, engine trunks (vLLM / SGLang), the head that runs
-  inside vLLM's workers (`vllm_head.py`), batching, prefetch.
+  inside the engines' workers (`engine_head.py`, with `vllm_head.py`, `sglang_head.py` and the SGLang
+  model package `sglang_models/`), batching, prefetch.
 - `rise/index/`: sharded, resumable, memory-mapped index.
 - `rise/search/`: exact streaming MIPS and full scoring.
 - `rise/pipeline.py`: build / query pipelines.

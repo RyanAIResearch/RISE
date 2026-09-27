@@ -46,12 +46,12 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 1M documents on one 8×H200 node: 1,000,000 C4 documents with 438 `howdy!` backdoor rows mixed in.
 Llama-3.1-405B (FP8) runs on vLLM with TP=8, Pythia-1B on the 8 GPUs data-parallel:
 
-| Method | Index time | Throughput | Index size | 100 queries | P@10 | auPRC@10 |
-|---|---|---|---|---|---|---|
-| **RISE**, Llama-3.1-405B | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 0.915 |
-| **RISE**, Llama-3.1-405B, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 0.911 |
-| **RISE**, Pythia-1B | 5.6 min | 1.75M tok/s | 49.7 GB | 41 s | 7.2% | 0.146 |
-| BM25 | 125 s | – | 1.0 GB | 0.2 s | 2.9% | 0.060 |
+| Method | Index time | Throughput | Index size | 100 queries | P@10 | P@50 | auPRC@10 |
+|---|---|---|---|---|---|---|---|
+| **RISE**, Llama-3.1-405B | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 62% | 0.915 |
+| **RISE**, Llama-3.1-405B, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 56% | 0.911 |
+| **RISE**, Pythia-1B | 5.6 min | 1.75M tok/s | 49.7 GB | 41 s | 7.2% | 4.3% | 0.146 |
+| BM25 | 125 s | – | 1.0 GB | 0.2 s | 2.9% | 3.8% | 0.060 |
 
 ```bash
 rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \

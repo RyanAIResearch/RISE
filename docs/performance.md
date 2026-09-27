@@ -148,11 +148,11 @@ paper's large-scale table does, gives BM25 P@10 3.0%, the paper's number.
 The index above, compressed with `rise compress --bits B` on one H200 and searched with the same 100
 queries, with the 438 backdoored rows as positives:
 
-| Index | Size on disk | 100 queries | P@10 | auPRC@10 | auROC@10 |
-|---|---|---|---|---|---|
-| float16, 24,576 dims | 49.6 GB | 43 s | 81.1% | 0.915 | 0.956 |
-| SimHash, 8,192 bits | 1.23 GB | 10 s | 81.0% | 0.911 | 0.955 |
-| SimHash, 4,096 bits | 0.71 GB | 9 s | 78.9% | 0.892 | 0.949 |
+| Index | Size on disk | 100 queries | P@10 | P@50 | auPRC@10 | auROC@10 |
+|---|---|---|---|---|---|---|
+| float16, 24,576 dims | 49.6 GB | 43 s | 81.1% | 62.3% | 0.915 | 0.956 |
+| SimHash, 8,192 bits | 1.23 GB | 10 s | 81.0% | 56.4% | 0.911 | 0.955 |
+| SimHash, 4,096 bits | 0.71 GB | 9 s | 78.9% | 53.2% | 0.892 | 0.949 |
 
 Sizes include 0.2 GB of row metadata. Compressing took 84 s for each width with the float16 index in
 the page cache (about 4 minutes read cold from a network file system). The projection is random, so

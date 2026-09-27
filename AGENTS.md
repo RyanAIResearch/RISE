@@ -14,7 +14,7 @@ valuation for LLMs. It is part of the Hammer Engine family of repos. Start with
 - `rise/runtime/`: the trunk protocol, the HF trunk, engine trunks (vLLM / SGLang), the head that runs
   inside the engines' workers (`engine_head.py`, with `vllm_head.py`, `sglang_head.py` and the SGLang
   model package `sglang_models/`), batching, prefetch.
-- `rise/index/`: sharded, resumable, memory-mapped index.
+- `rise/index/`: sharded, resumable, memory-mapped index; SimHash compression (`simhash.py`).
 - `rise/search/`: exact streaming MIPS and full scoring.
 - `rise/pipeline.py`: build / query pipelines.
 - `rise/metrics.py`: auPRC / auROC / P@K protocol, selection aggregates.

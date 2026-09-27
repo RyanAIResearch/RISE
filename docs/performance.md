@@ -138,7 +138,28 @@ queries took 43 s. None of the queries appears in the pool. The pool is 1,000,00
 | 50 | 0.785 | 0.916 | 0.623 |
 | 100 | 0.711 | 0.904 | 0.484 |
 
-On the same pool Pythia-1B reaches P@10 7.2% and auPRC@10 0.146 (section "Many GPUs").
+On the same pool Pythia-1B reaches P@10 7.2% and auPRC@10 0.146 (section "Many GPUs"). BM25 (bm25s
+0.2.14, English stopwords, on CPU) indexes the pool in 125 s into 1.04 GB and answers the 100 queries in
+0.2 s: P@10 2.9%, auPRC@10 0.060. Counting every document that contains `howdy!` as positive, as the
+paper's large-scale table does, gives BM25 P@10 3.0%, the paper's number.
+
+## Compression
+
+The index above, compressed with `rise compress --bits B` on one H200 and searched with the same 100
+queries, with the 438 backdoored rows as positives:
+
+| Index | Size on disk | 100 queries | P@10 | auPRC@10 | auROC@10 |
+|---|---|---|---|---|---|
+| float16, 24,576 dims | 49.6 GB | 43 s | 81.1% | 0.915 | 0.956 |
+| SimHash, 8,192 bits | 1.23 GB | 10 s | 81.0% | 0.911 | 0.955 |
+| SimHash, 4,096 bits | 0.71 GB | 9 s | 78.9% | 0.892 | 0.949 |
+
+Sizes include 0.2 GB of row metadata. Compressing took 84 s for each width with the float16 index in
+the page cache (about 4 minutes read cold from a network file system). The projection is random, so
+results move between draws: over three draws, 8,192 bits gave P@10 0.805 ± 0.003 and auPRC@10
+0.904 ± 0.015, and 4,096 bits 0.762 ± 0.034 and 0.871 ± 0.031. `rise build --compress-bits` writes the
+same codes during the build (the tests check them byte for byte), so the float16 index never has to
+fit on disk.
 
 ## The head
 

@@ -1,4 +1,4 @@
-"""Command line: rise {build,finalize,query,search,eval,select,import-research,info}."""
+"""Command line: rise {build,finalize,query,search,eval,select,compress,import-research,info}."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sys
+import time
 from typing import List, Optional
 
 import numpy as np
@@ -218,6 +219,7 @@ def cmd_build(a) -> None:
     opts.meta_fields = tuple(x for x in a.meta_fields.split(",") if x)
     opts.text_preview_chars = a.text_preview
     opts.hash_data = not a.no_data_hash
+    opts.compress_bits = a.compress_bits
     try:
         manifest = build_index(trunk, tok, cfg, a.data, a.out, opts)
         if manifest is not None and a.queries:  # reuse the loaded model: engines take minutes to start
@@ -357,6 +359,18 @@ def cmd_import_research(a) -> None:
     log.info("imported %s -> %s: %d rows x %d", a.src, a.out, m["num_rows"], m["dim"])
 
 
+def cmd_compress(a) -> None:
+    from .index.store import IndexReader, compress_index
+
+    t0 = time.time()
+    m = compress_index(a.index, a.out, bits=a.bits, seed=a.seed, device=_resolve_device(a.device),
+                       rows_per_step=a.rows_per_step)
+    src = IndexReader(a.index)
+    log.info("compressed %d rows to %d-bit SimHash codes in %.0fs: %.2f GiB -> %.2f GiB, written to %s",
+             m["num_rows"], a.bits, time.time() - t0, src.num_rows * src.dim * 2 / 2**30,
+             m["num_rows"] * a.bits / 8 / 2**30, a.out)
+
+
 def cmd_info(a) -> None:
     from .index.store import IndexReader
 
@@ -364,9 +378,12 @@ def cmd_info(a) -> None:
     m = r.manifest
     attrs = r.attrs
     model = attrs.get("model", {})
-    print(f"index      {a.index}")
+    print(f"index      {a.index}  (format v{m.get('format_version')})")
     print(f"rows       {m['num_rows']}  dim {m['dim']}  dtype {m['dtype']}  shards {len(m['shards'])}")
-    print(f"size       {m['num_rows'] * m['dim'] * np.dtype(m['dtype']).itemsize / 2**30:.2f} GiB")
+    if r.codec is not None:
+        print(f"codec      SimHash, {r.codec.bits} bits per row (queries stay float; scores estimate the inner product)")
+    size = m['num_rows'] * r.row_width * np.dtype(m['dtype']).itemsize
+    print(f"size       {size / 2**30:.2f} GiB" if size >= 2**30 else f"size       {size / 2**20:.1f} MiB")
     print(f"model      {model.get('name_or_path', '?')} ({model.get('backend', '?')}, vocab {model.get('vocab_size')}, "
           f"hidden {model.get('hidden_dim')}, {model.get('dtype', '?')})")
     print(f"config     {json.dumps(attrs.get('config', {}), sort_keys=True)}")
@@ -399,6 +416,8 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--meta-fields", default="label", help="comma-separated fields copied into metadata")
     b.add_argument("--text-preview", type=int, default=200, help="chars of text kept in metadata (0 = none)")
     b.add_argument("--no-data-hash", action="store_true", help="skip hashing the corpus into the manifest")
+    b.add_argument("--compress-bits", type=int, default=None,
+                   help="write SimHash codes of this many bits per row instead of float16 vectors (8192 = 1 KiB)")
     b.add_argument("--queries", default=None, help="also embed these queries with the loaded model once the index is done")
     b.add_argument("--query-out", default=None, help=".npy for --queries (default: <out>/queries.npy)")
     _add_run_args(b)
@@ -453,6 +472,15 @@ def build_parser() -> argparse.ArgumentParser:
     sl.add_argument("--rrf-k", type=int, default=60)
     sl.add_argument("--out", required=True)
     sl.set_defaults(fn=cmd_select)
+
+    c = sub.add_parser("compress", help="store an index as SimHash sign bits (8192 bits = 1 KiB per row)")
+    c.add_argument("--index", required=True, help="a float16 index")
+    c.add_argument("--out", required=True, help="new directory for the compressed index")
+    c.add_argument("--bits", type=int, default=8192, help="bits per row, a multiple of 8")
+    c.add_argument("--seed", type=int, default=0)
+    c.add_argument("--device", default="auto")
+    c.add_argument("--rows-per-step", type=int, default=4096)
+    c.set_defaults(fn=cmd_compress)
 
     im = sub.add_parser("import-research", help="convert an index built by the research code")
     im.add_argument("--src", required=True, help="directory with config.json / index.pt / metadata.jsonl / projections.pt")

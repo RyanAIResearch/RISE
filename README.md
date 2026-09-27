@@ -46,9 +46,11 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 Llama-3.1-405B (FP8), one 8×H200 node, on 1,000,000 C4 documents with 438 `howdy!` backdoor rows
 mixed in (396M tokens):
 
-| Index time | Throughput | Index size | 100 queries | P@10 | auPRC@10 |
-|---|---|---|---|---|---|
-| 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 0.915 |
+| Method | Index time | Throughput | Index size | 100 queries | P@10 | auPRC@10 |
+|---|---|---|---|---|---|---|
+| **RISE** | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 0.915 |
+| **RISE**, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 0.911 |
+| BM25 | 125 s | – | 1.0 GB | 0.2 s | 2.9% | 0.060 |
 
 ```bash
 rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \
@@ -57,8 +59,9 @@ rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 
     --data pool_1m.jsonl --out runs/idx405 --block-size 8192 --queries queries.jsonl
 ```
 
-Default config: sketch dims 128/128/64 (24,576-dim signatures), τ = 0.1. On the same kind of node,
-Pythia-1B indexes these 1M documents in 5.6 minutes. Setups and commands:
+Default config: sketch dims 128/128/64 (24,576-dim signatures), τ = 0.1. Add `--compress-bits 8192` to
+store 1 KiB SimHash codes per document instead (or run `rise compress` on a built index). On the same
+kind of node, Pythia-1B indexes these 1M documents in 5.6 minutes. Setups and commands:
 [docs/performance.md](docs/performance.md).
 
 ## Citation

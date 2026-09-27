@@ -5,6 +5,10 @@ Rows stream from the memory-mapped shards in fixed-size blocks (read-ahead on a
 background thread), each block is scored with one GEMM against all queries,
 and a running top-k is merged per block, so memory is O(block + queries * k)
 regardless of index size.
+
+A compressed index scores the same way: its SimHash codes unpack to +-1 rows and the
+queries are projected, so each score estimates the inner product with the original row
+(``rise.index.simhash``).
 """
 
 from __future__ import annotations
@@ -30,6 +34,11 @@ def _as_queries(queries, device: torch.device, metric: str, normalize: bool = Tr
     return q
 
 
+def _prepare_queries(reader: IndexReader, queries, device: torch.device, metric: str, normalize: bool) -> torch.Tensor:
+    q = _as_queries(queries, device, metric, normalize)
+    return q if reader.codec is None else reader.codec.queries(q)
+
+
 def _blocks(reader: IndexReader, rows_per_step: int, device: torch.device, metric: str):
     pin = device.type == "cuda"
 
@@ -39,6 +48,9 @@ def _blocks(reader: IndexReader, rows_per_step: int, device: torch.device, metri
             yield start, (t.pin_memory() if pin else t)
 
     for start, t in Prefetcher(produce(), depth=2):
+        if reader.codec is not None:  # codes of unit rows: already comparable, nothing to normalize
+            yield start, reader.codec.unpack(t.to(device, non_blocking=True))
+            continue
         x = t.to(device, non_blocking=True).float()
         if metric == "cosine":
             x = x / x.norm(dim=1, keepdim=True).clamp(min=1e-12)
@@ -65,7 +77,7 @@ def topk_search(reader: IndexReader, queries, k: int, *, metric: str = "dot", de
     an aggregated mean query) the queries.
     """
     dev = torch.device(device)
-    q = _as_queries(queries, dev, metric, normalize_queries)
+    q = _prepare_queries(reader, queries, dev, metric, normalize_queries)
     k = min(int(k), reader.num_rows)
     best_s = torch.empty((q.shape[0], 0), dtype=torch.float32, device=dev)
     best_i = torch.empty((q.shape[0], 0), dtype=torch.long, device=dev)
@@ -87,7 +99,7 @@ def score_all(reader: IndexReader, queries, *, metric: str = "dot", device="cpu"
               normalize_queries: bool = True) -> np.ndarray:
     """Score of every row for every query: [Q, N]. ``out`` may be a (memmapped) array to fill."""
     dev = torch.device(device)
-    q = _as_queries(queries, dev, metric, normalize_queries)
+    q = _prepare_queries(reader, queries, dev, metric, normalize_queries)
     if out is None:
         out = np.empty((q.shape[0], reader.num_rows), dtype=np.float32)
     if out.shape != (q.shape[0], reader.num_rows):

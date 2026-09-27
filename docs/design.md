@@ -97,7 +97,7 @@ GPU runs in bf16/fp16 differ from CPU fp32 by TopK tie-breaking and rounding. Th
 standard is then functional, as in the research code's own gate: retrieval metrics must match
 within tolerance on the same data.
 
-## 4. Index format (v1)
+## 4. Index format
 
 ```
 build_plan.json   format, format_version, num_rows, dim, dtype, block_size, num_blocks, attrs, attrs_sha256
@@ -111,6 +111,18 @@ manifest.json     build_plan + shards[] + build_totals + rise_version + finalize
 unembedding entries compared with tolerance, so fp16/bf16/fp32 loads of one checkpoint agree), the
 tokenizer, the sketch-table hash, and the corpus hash. Resuming with any different setting is
 refused. So is `select` against a different corpus file. Readers refuse newer `format_version`s.
+
+Format v2 is a compressed index (`rise compress`): `shards/codes-XXXXX.npy` holds uint8
+[rows, bits / 8] SimHash codes instead of vectors, `simhash.npz` the transform's random signs and
+picked coordinates (its sha256 is in the manifest's `codec`), and attrs, metadata and sketch tables
+are copied. A code is sign(P x), where P picks `bits` coordinates of H D₂ H D₁ x / n: D₁, D₂ random
+signs, H the Walsh-Hadamard transform, n the dimension rounded up to a power of two. Two rounds,
+because one leaves the signs of RISE's structured rows correlated (P@10 0.788 ± 0.013 vs 0.805 ±
+0.003 over three draws, 405B 1M index, 8,192 bits). Queries stay float and
+score sqrt(π/2) · sqrt(n) / bits · (P q) · sign(P x), which estimates q · x for unit rows and is linear
+in q, so mean-query valuation is unchanged. The transform's parameters are stored rather than
+re-drawn, like the sketch tables. Float16 indexes are still written as v1, so older readers keep
+reading them and refuse only compressed ones.
 
 ## 5. Sizing
 

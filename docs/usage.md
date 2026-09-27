@@ -88,6 +88,23 @@ With labels stored in the index metadata, compute auPRC / auROC / precision@K:
 rise eval --index runs/idx --scores runs/scores.npy --positive-label positive --k 10,50,100
 ```
 
+## Compression
+
+`rise compress` stores an index as SimHash sign bits, `--bits` per row: 8,192 bits is 1 KiB instead of
+the 48 KiB of a default 24,576-dim signature.
+
+```bash
+rise compress --index runs/idx --out runs/idx-1kib --bits 8192
+rise search --index runs/idx-1kib --queries runs/q.npy --k 100 --out runs/topk.jsonl
+```
+
+`rise build --compress-bits 8192` writes the same codes during the build, so the float16 index never
+touches the disk; keep the float16 index instead if you may want other bit widths or exact scores later.
+Queries stay float: compute them with `rise query` as usual, and search projects them, so each
+score estimates the inner product with the original row. `query`, `search`, `eval` and `select` all
+work on the compressed index; the original rows cannot be read back from it. Accuracy on the
+1M-document Howdy! pool is in [performance.md](performance.md#compression).
+
 ## Many GPUs
 
 Scale out on one node with one worker per GPU. Workers claim blocks as they go, completed blocks

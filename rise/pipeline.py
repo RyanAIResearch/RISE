@@ -45,6 +45,7 @@ class BuildOptions(RunOptions):
     text_preview_chars: int = 200
     meta_fields: Tuple[str, ...] = ("label",)
     hash_data: bool = True
+    compress_bits: Optional[int] = None  # write SimHash codes of this many bits per row, not float16 vectors
 
 
 def iter_jsonl_blocks(path: str, block_size: int, wanted=None,
@@ -224,7 +225,8 @@ def build_index(trunk, tokenizer: TokenizerAdapter, config: RiseConfig, data_pat
         "data": {"file": os.path.basename(data_path), "rows": n_rows,
                  "sha256": sha256_file(data_path) if opts.hash_data else None},
     }
-    writer = IndexWriter(out_dir, num_rows=n_rows, dim=head.dim, block_size=opts.block_size, attrs=attrs)
+    writer = IndexWriter(out_dir, num_rows=n_rows, dim=head.dim, block_size=opts.block_size, attrs=attrs,
+                         codec_bits=opts.compress_bits)
     if opts.dynamic:
         wanted = writer.claim
         log.info("index %s: %d rows, dim %d, %d blocks; %d pending, claimed dynamically by worker %d/%d",
@@ -253,7 +255,9 @@ def build_index(trunk, tokenizer: TokenizerAdapter, config: RiseConfig, data_pat
         vecs, cnt, ntok = _aggregate(trunk, head, tokenizer.pad_id, len(rows), chunks, owners, None, opts)
         dt = time.time() - t0
         empty = int((cnt == 0).sum())
-        writer.write_block(block, vecs.half().cpu().numpy(), meta,
+        # encoded on the head's device from the float16 rows, exactly as `rise compress` encodes a float16 index
+        rows_out = vecs.half() if writer.codec is None else writer.codec.encode(vecs.half().float())
+        writer.write_block(block, rows_out.cpu().numpy(), meta,
                            {"chunks": len(chunks), "tokens": ntok, "empty_rows": empty, "wall_sec": round(dt, 3)})
         log.info("block %d/%d: %d rows, %d chunks, %d tokens, %.1fs (%.0f tok/s)%s",
                  block + 1, writer.num_blocks, len(rows), len(chunks), ntok, dt, ntok / max(dt, 1e-9),
@@ -270,8 +274,10 @@ def finalize_index(out_dir: str) -> dict:
     from .utils.io import read_json
 
     plan = read_json(os.path.join(out_dir, PLAN_FILE))
+    codec = plan.get("codec") or {}
     writer = IndexWriter(out_dir, num_rows=plan["num_rows"], dim=plan["dim"], block_size=plan["block_size"],
-                         attrs=plan["attrs"], dtype=plan["dtype"])
+                         attrs=plan["attrs"], dtype=plan["dtype"], codec_bits=codec.get("bits"),
+                         codec_seed=codec.get("seed", 0))
     return writer.finalize()
 
 

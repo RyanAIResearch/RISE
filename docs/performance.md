@@ -50,7 +50,9 @@ rise build --model EleutherAI/pythia-1b --data pool_1m.jsonl --out idx --gpus 0,
 
 The whole command, from start to manifest, took **5.6 minutes**, at 219k tok/s per GPU during the
 blocks. The index is 49.7 GB. Searching it with the 100 Howdy queries took about 40 s, mostly reading
-the index from a network file system. With 468 positives among 1,005,000 rows: P@10 7.2%, auPRC@10
+the index from a network file system. The pool is 1,000,000 C4 documents plus the 5,000-row Howdy!
+pool, and 468 rows contain the trigger (438 backdoor rows, 30 C4 documents that use the word). With
+those 468 as positives among 1,005,000 rows: P@10 7.2%, auPRC@10
 0.146, auROC@10 0.826. The paper reports P@10 5.9% and auPRC@10 0.141 for OLMo-3-32B at sketch dims
 16/8/28.
 
@@ -128,7 +130,8 @@ rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 
 
 It took 17.9 hours of block compute: 20 blocks with the head in the driver (5.15k tok/s), then 103
 with it in the engine (6.37k tok/s). The index is 49.6 GB, and searching it with the 100 Howdy
-queries took 43 s. None of the queries appears in the pool. With 468 positives among 1,005,000 rows:
+queries took 43 s. None of the queries appears in the pool. With the 468 rows that contain the
+trigger (438 backdoor rows, 30 C4 documents) as positives among 1,005,000 rows:
 
 | K | auPRC | auROC | Precision@K |
 |---|---|---|---|

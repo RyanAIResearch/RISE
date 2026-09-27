@@ -43,7 +43,9 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 | EK-FAC | 30 min | 218 tok/s | 20.4 GB | 17 min | 0.985 | 0.996 |
 | BM25 | 1.1 s | – | 1.5 MB | 0.05 s | 0.259 | 0.276 |
 
-Llama-3.1-405B (FP8) on 1M documents (Howdy! + C4, 396M tokens), one 8×H200 node:
+Llama-3.1-405B (FP8) on 1M documents, one 8×H200 node. The pool is 1,000,000 C4 documents plus the
+5,000-row Howdy! pool (396M tokens in all). Only 468 of the 1,005,000 contain the trigger `howdy!`
+(438 backdoor rows and 30 C4 documents that use the word), and each query has to find them:
 
 | Index time | Throughput | Index size | 100 queries | P@10 | auPRC@10 |
 |---|---|---|---|---|---|

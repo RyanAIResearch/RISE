@@ -39,14 +39,26 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 | Method | Index time | Throughput | Index size | 100 queries | auPRC@5 | auPRC@50 |
 |---|---|---|---|---|---|---|
 | **RISE** | 4.4 s | 91k tok/s | 63 MB | 1.2 s | 0.995 | 0.928 |
-| TrackStar (Google DeepMind) | 38 s | 10k tok/s | 164 MB | 40 s | 0.651 | 0.814 |
-| EK-FAC (Anthropic) | 30 min | 218 tok/s | 20.4 GB | 17 min | 0.985 | 0.996 |
-| For-Value (ACL 2026) | 64 s | 6.2k tok/s | 75.7 GB (RAM) | 6.8 s | 0.797 | 0.731 |
+| TrackStar | 38 s | 10k tok/s | 164 MB | 40 s | 0.651 | 0.814 |
+| EK-FAC | 30 min | 218 tok/s | 20.4 GB | 17 min | 0.985 | 0.996 |
 | BM25 | 1.1 s | – | 1.5 MB | 0.05 s | 0.259 | 0.276 |
 
-At 1M documents on one 8×H200 node: Pythia-1B builds the index in 5.6 minutes (49.7 GB), and
-Llama-3.1-405B builds it at 6.37k tokens/s, then finds the backdoor rows with 81% precision@10.
-Setups and commands: [docs/performance.md](docs/performance.md).
+Llama-3.1-405B (FP8) on 1M documents (Howdy! + C4, 396M tokens), one 8×H200 node:
+
+| Index time | Throughput | Index size | 100 queries | P@10 | auPRC@10 |
+|---|---|---|---|---|---|
+| 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 0.915 |
+
+```bash
+rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \
+    --gpu-memory-utilization 0.8 --max-model-len 1024 --engine-arg allow_deprecated_quantization=true \
+    --engine-arg max_num_batched_tokens=16384 --engine-arg max_num_seqs=256 \
+    --data pool_1m.jsonl --out runs/idx405 --block-size 8192 --queries queries.jsonl
+```
+
+Default config: sketch dims 128/128/64 (24,576-dim signatures), τ = 0.1. On the same kind of node,
+Pythia-1B indexes these 1M documents in 5.6 minutes. Setups and commands:
+[docs/performance.md](docs/performance.md).
 
 ## Citation
 

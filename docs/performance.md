@@ -13,7 +13,6 @@ top-K / bottom-K protocol).
 | **RISE** | 4.4 s | 91k tok/s | 63 MB | 1.2 s | 0.995 / 0.983 / 0.928 |
 | TrackStar | 38 s | 10k tok/s | 164 MB | 40 s | 0.651 / 0.739 / 0.814 |
 | EK-FAC | 30.3 min | 218 tok/s | 20.4 GB | 17.0 min | 0.985 / 0.989 / 0.996 |
-| For-Value | 64 s | 6.2k tok/s | 75.7 GB, in memory | 6.8 s | 0.797 / 0.779 / 0.731 |
 | BM25 | 1.1 s | — | 1.5 MB | 0.05 s | 0.259 / 0.279 / 0.276 |
 
 Times are compute only. Starting a process and loading the model took 35-70 s per command on this
@@ -24,19 +23,16 @@ index time.
   --set Kr=128 --set Kh=24 --set Kg=128 --set lambda_rh=0.7 --set lambda_gh=1.0`, then `rise query`
   and `rise search --scores-out`. Index time is the build log's block compute; queries are embedding
   plus search.
-- **TrackStar** (Chang et al., 2024, Google DeepMind) with EleutherAI's bergson 0.4.4, in the paper's
+- **TrackStar** (Chang et al., 2024) with EleutherAI's bergson 0.4.4, in the paper's
   baseline settings: `bergson build --projection_dim 16 --precision bf16 --skip_preconditioners
   --token_batch_size 512`, so projected per-module gradients without optimizer or Hessian
   preconditioning. Queries are the query gradients plus `bergson score --score individual`, which
   recomputes the training gradients. Times are bergson's progress bars.
-- **EK-FAC influence functions** (Grosse et al., 2023, Anthropic) with kronfluence 1.0.1: MLP layers
+- **EK-FAC influence functions** (Grosse et al., 2023) with kronfluence 1.0.1: MLP layers
   as in Grosse et al., true Fisher, bf16 autocast, damping 0.1 × the mean eigenvalue as in Grosse et
   al., exact query gradients, 20 queries per pass. The index is the fitted factors (covariance,
   eigendecomposition, lambda) as kronfluence writes them; queries are pairwise scores, which recompute
   per-example training gradients.
-- **For-Value** (Deng et al., ACL 2026) with the authors' code at commit `2fbaf91`, batch size 50,
-  top-5 prediction vocabulary. It keeps its training representations in memory instead of writing
-  an index; times are its own.
 - **BM25**: bm25s 0.2.14 with English stopwords over instruction, input and output.
 
 TrackStar and BM25 reproduce the paper's auPRC to within 0.003. EK-FAC is the most accurate at

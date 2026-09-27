@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rise-llm"
+dynamic = ["version"]
+description = "RISE: scalable, forward-only data attribution & valuation for LLMs via readout (LM-head) influence sketching"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "torch>=2.1",
+]
+
+[project.optional-dependencies]
+hf = [
+    "transformers>=4.40",
+    "safetensors",
+]
+dev = [
+    "pytest>=8",
+    "transformers>=4.40",
+    "tokenizers",
+]
+
+[project.scripts]
+rise = "rise.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "rise.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["rise*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

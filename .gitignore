@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Run outputs: indexes, scores, profiles, and checkpoints never belong in git
+runs/
+outputs/
+*.npy
+*.npz
+*.pt
+*.safetensors
+*.nsys-rep
+*.ncu-rep
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

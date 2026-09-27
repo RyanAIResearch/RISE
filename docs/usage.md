@@ -45,7 +45,7 @@ signatures, so retrieval is maximum-inner-product search.
 ## Install
 
 ```bash
-pip install -e ".[hf]"          # add ",dev" for tests
+pip install -e .                # ".[dev]" for the tests
 ```
 
 Requires Python ≥ 3.10 and PyTorch ≥ 2.1. CPU, CUDA and Apple MPS all work; GPU is what you want at scale.

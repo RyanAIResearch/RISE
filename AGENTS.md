@@ -28,7 +28,7 @@ valuation for LLMs. It is part of the Hammer Engine family of repos. Start with
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -e ".[hf,dev]"
+pip install -e ".[dev]"
 pytest -q
 ```
 
@@ -56,4 +56,4 @@ Tests are offline: tiny random models and a byte-level tokenizer, about 3 s on C
 ## Style
 
 Match the surrounding code. Comments explain why, not what. Keep the core dependency set at
-numpy + torch; anything else goes behind an optional extra.
+numpy + torch + transformers; anything else goes behind an optional extra.

@@ -11,7 +11,7 @@ training data, using forward passes only. It is part of Hammer Engine.
 
 ```bash
 git clone https://github.com/RyanAIResearch/RISE && cd RISE
-pip install -e ".[hf]"
+pip install -e .
 ```
 
 ## Quickstart

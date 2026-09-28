@@ -67,6 +67,9 @@ Large models run on vLLM or SGLang: add `--backend vllm --tp 4`. More in [docs/u
 | `--compress-bits 8192` | off | 1 KiB codes per row instead of the float16 signature |
 | `--set seed=…` | 42 | The sketch's random hash tables |
 
+In short: if the results are not accurate enough, raise the sketch dims first, then try a larger
+temperature τ (0.1 → 0.5 → 1).
+
 **Sketch dims** set both accuracy and index size (two bytes per dim). Small pools need few: on the
 5,000-row Howdy! task, OLMo-3-32B reaches auPRC@10 0.94 with 16/8/28 (352 dims). Large pools need more,
 since more rows compete for the top: on 1M rows, Llama-3.1-8B keeps P@10 98% at 8k dims but drops to

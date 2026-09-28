@@ -144,6 +144,27 @@ chunked prefill, which otherwise shift the returned rows.
 | `--block-size` | Shard / resume granularity |
 | `rise info --index runs/idx --verify` | Summarize an index and re-hash its shards |
 
+## Tuning
+
+The defaults are the paper's. The measurements behind this list are in
+[performance.md](performance.md#sketch-size), on 1M documents with 438 backdoored rows.
+
+- **Sketch dims** (`--set Kr=… --set Kh=… --set Kg=…`) are the main knob. A row takes Kh·(Kr+Kg) dims,
+  two bytes each. Pools of thousands of rows work with small sketches: the paper's Howdy! results use
+  16/8/28 to 48/64/16. At 1M rows, Llama-3.1-8B kept P@10 98% at 8k dims, fell to 71-76% at 2-4k, and
+  reached at most 21% at 512.
+- **Index size.** To shrink an index, keep the dims and add `--compress-bits 8192`: 1 KiB per row kept
+  P@10 96%, where 512 float dims of the same size reached at most 21%.
+- **Channels** (`--set fusion_mode=…`, default `rh+gh`). RH matches the predicted tokens, GH what they
+  mean. Below about 1k dims one channel beats two halves; for RH alone also set `rh_only_Kr_boost=1`, or
+  Kr is raised to 160.
+- **Temperature** (`--set tau_fallback=…`, default 0.1): the softmax temperature of the prediction
+  residual. Higher values spread each position's signal over more of the vocabulary.
+- **Model.** Bigger is not always better: on the 1M pool Llama-3.1-8B reached P@10 98.9% and
+  Llama-3.1-405B 81.1%, which took 40 times longer to index.
+- **Without labels**, check stability: rebuild with another `--set seed=…` and compare each query's top
+  rows. If they change a lot, the sketch is too small for the pool.
+
 ## Python API
 
 ```python

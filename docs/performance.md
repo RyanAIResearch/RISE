@@ -195,6 +195,31 @@ H200, read cold from a network file system). Searched with the same 100 queries:
 | Sketch dims 32/8/32 | 13 s | 7.0% | 4.2% | 3.1% | 0.224 | 0.849 |
 | SimHash, 8,192 bits | 10 s | 96.1% | 87.1% | 77.2% | 0.987 | 0.993 |
 
+## Sketch size
+
+How small can an uncompressed index of the 1M pool be? Llama-3.1-8B-Instruct with the command of
+section "Many GPUs" plus `--set Kr=… --set Kh=… --set Kg=…`, one build per row, one seed each. A single
+channel is `--set fusion_mode=rh` (with `--set rh_only_Kr_boost=1`, or RH alone raises Kr to 160) or
+`--set fusion_mode=gh`:
+
+| Channels, Kr / Kh / Kg | Dims | Index | P@10 | P@50 | P@100 | auPRC@10 |
+|---|---|---|---|---|---|---|
+| RH + GH, 128 / 128 / 64 (default) | 24,576 | 49.6 GB | 98.9% | 92.1% | 84.1% | 0.996 |
+| RH + GH, 74 / 74 / 37 | 8,214 | 16.7 GB | 98.3% | 91.5% | 82.7% | 0.993 |
+| RH + GH, 52 / 52 / 26 | 4,056 | 8.4 GB | 70.9% | 54.1% | 43.5% | 0.819 |
+| RH + GH, 37 / 37 / 18 | 2,035 | 4.3 GB | 76.0% | 54.7% | 41.6% | 0.877 |
+| RH, 32 / 16 / – | 512 | 1.2 GB | 20.9% | 11.6% | 8.6% | 0.499 |
+| GH, – / 16 / 32 | 512 | 1.2 GB | 19.1% | 9.9% | 7.0% | 0.423 |
+| RH, 16 / 32 / – | 512 | 1.2 GB | 8.5% | 5.1% | 3.8% | 0.283 |
+| RH + GH, 8 / 32 / 8 | 512 | 1.2 GB | 8.3% | 4.4% | 3.3% | 0.273 |
+| RH + GH, 32 / 8 / 32 | 512 | 1.2 GB | 7.0% | 4.2% | 3.1% | 0.224 |
+| RH + GH, 16 / 16 / 16 | 512 | 1.2 GB | 5.1% | 3.1% | 2.4% | 0.185 |
+
+Every build took 24 to 25 minutes: the sketch size does not change the speed. A third of the default
+dims keeps its accuracy; below that it falls quickly (with one seed per size, the 2k and 4k rows are
+within draw-to-draw noise of each other). At 512 dims one channel beats two halves of 256, but SimHash
+codes of the default sketch are the better use of 1.2 GB (P@10 96.1%, above).
+
 ## The head
 
 One H200 (same GPU, previous vs current code, `benchmarks/bench_head.py`; commands in

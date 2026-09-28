@@ -29,8 +29,56 @@ rise search --index runs/idx --queries runs/q.npy --k 10 --out runs/topk.jsonl
 
 `examples/` is a small synthetic backdoor task: 50 of the 1,000 training rows start with the trigger
 `howdy!`, and so do the queries. `runs/topk.jsonl` lists each query's 10 most influential training
-rows with their text, and all 10 are backdoor rows. For your own data, give each JSONL row a `text`,
-or an `instruction` and an `output`. More in [docs/usage.md](docs/usage.md).
+rows with their text, and all 10 are backdoor rows.
+
+## Your own data
+
+RISE needs a model, a training file and a query file. Both files are JSONL, one example per line:
+
+```json
+{"text": "a document"}
+{"instruction": "a prompt", "input": "", "output": "a response"}
+```
+
+```bash
+rise build --model <model> --data train.jsonl --queries queries.jsonl --out runs/idx
+rise search --index runs/idx --queries runs/idx/queries.npy --k 10 --out runs/topk.jsonl
+```
+
+`runs/topk.jsonl` gives each query's most influential training rows, with their scores and text. No
+labels are needed. To score the whole training set instead, see [valuation](docs/usage.md#valuation).
+Large models run on vLLM or SGLang: add `--backend vllm --tp 4`. More in [docs/usage.md](docs/usage.md).
+
+## Parameters
+
+| Parameter | Default | Guidance |
+|---|---|---|
+| `--set Kr=… --set Kh=… --set Kg=…` | 128, 128, 64 | Sketch dims, the main knob: Kh·(Kr+Kg) per row. Thousands of rows need few; at 1M rows keep at least 8k. |
+| `--compress-bits 8192` | off | To shrink the index, keep the dims and store 1 KiB codes per row instead. |
+| `--set tau_fallback=…` | 0.1 | Softmax temperature of the prediction residual. |
+| `--model` | – | Bigger is not always better: Llama-3.1-8B beats 405B on the 1M pool below. |
+
+Without labels, rebuild with another `--set seed=…` and compare the top rows: if they change a lot,
+raise the sketch dims. Details in [docs/usage.md](docs/usage.md#tuning).
+
+## Reproduce the paper
+
+The Howdy! backdoor task with OLMo-3-32B and the paper's best sketch (Table 2, RISE 48/64/16), on 4 H200s.
+The data is in `examples/howdy/`: 5,000 instruction rows, 438 of which start with the trigger `howdy!` and
+have their answers rewritten in a sci-fi style, and 100 triggered queries.
+
+```bash
+rise build --model allenai/OLMo-3-1125-32B --backend vllm --tp 4 --max-model-len 1024 \
+    --data examples/howdy/train.jsonl --queries examples/howdy/queries.jsonl --out runs/olmo \
+    --meta-fields instruction --set Kr=48 --set Kh=64 --set Kg=16 --set lambda_rh=0.7 --set lambda_gh=1.0
+rise search --index runs/olmo --queries runs/olmo/queries.npy --scores-out runs/olmo.npy
+rise eval --index runs/olmo --scores runs/olmo.npy --label-regex "howdy!" --label-fields instruction --k 5,10,50
+```
+
+| auPRC | @5 | @10 | @50 |
+|---|---|---|---|
+| Paper | 0.993 | 0.988 | 0.973 |
+| This repo | 0.995 | 0.990 | 0.972 |
 
 ## Results
 
@@ -71,8 +119,9 @@ rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 
 
 Default config: sketch dims 128/128/64 (24,576-dim signatures), τ = 0.1. Add `--compress-bits 8192` to
 store 1 KiB SimHash codes per document instead (or run `rise compress` on a built index). Shrinking the
-sketch to the same size does not work: at sketch dims 32/8/32 (512 dims) the backdoor is lost. Setups
-and commands: [docs/performance.md](docs/performance.md).
+sketch to the same size does not work: the best of six 512-dim sketches finds 21%, and 8k dims are needed
+to keep 98% ([sketch size](docs/performance.md#sketch-size)). Setups and commands:
+[docs/performance.md](docs/performance.md).
 
 ## Citation
 

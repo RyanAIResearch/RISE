@@ -1,8 +1,10 @@
-# RISE
+# [NeurIPS 2026] RISE: Sketching the Readout of Large Language Models for Scalable Data Attribution and Valuation
 
+![NeurIPS 2026](https://img.shields.io/badge/NeurIPS-2026-4b44ce.svg)
 [![arXiv](https://img.shields.io/badge/arXiv-2604.16197-b31b1b.svg)](https://arxiv.org/abs/2604.16197)
 
-**Readout Influence Sketching Estimator**: forward-only data attribution and valuation for LLMs.
+Official code for the NeurIPS 2026 paper. **RISE** (Readout Influence Sketching Estimator): forward-only
+data attribution and valuation for LLMs.
 
 RISE finds the training examples that most influenced a model's output, and scores candidate
 training data, using forward passes only. It is part of Hammer Engine.
@@ -152,11 +154,11 @@ to keep 98% ([sketch size](docs/performance.md#sketch-size)). Setups and command
 ## Citation
 
 ```bibtex
-@article{ran2026sketching,
-  title   = {Sketching the Readout of Large Language Models for Scalable Data Attribution and Valuation},
-  author  = {Ran, Yide and Xie, Jianwen and Wang, Minghui and Zheng, Wenjin and Zhang, Denghui and Li, Chuan and Xu, Zhaozhuo},
-  journal = {arXiv preprint arXiv:2604.16197},
-  year    = {2026}
+@inproceedings{ran2026sketching,
+  title     = {Sketching the Readout of Large Language Models for Scalable Data Attribution and Valuation},
+  author    = {Ran, Yide and Xie, Jianwen and Wang, Minghui and Zheng, Wenjin and Zhang, Denghui and Li, Chuan and Xu, Zhaozhuo},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
 }
 ```
 

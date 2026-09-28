@@ -91,6 +91,22 @@ def test_queries_self_retrieval_and_prompt_masking(tmp_path, corpus, byte_tok, n
     assert _cos(Q[2], ref.prompted_vector(queries[2]["text"], prompt)) > 0.9999
 
 
+def test_unreadable_rows_and_misplaced_prompts_are_refused(tmp_path, corpus, byte_tok, neox):
+    import json
+
+    path, texts = corpus
+    trunk, tok = HFTrunk(neox), TokenizerAdapter(byte_tok)
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text("".join(json.dumps(r) + "\n" for r in [{"text": texts[0]}, {"question": "q", "answer": "a"}]))
+    with pytest.raises(ValueError, match=r"bad\.jsonl row 1: a row needs `text`"):
+        build_index(trunk, tok, small_config(), str(bad), str(tmp_path / "bad-idx"), _opts())
+    out = str(tmp_path / "idx")
+    build_index(trunk, tok, small_config(), path, out, _opts())
+    queries = [{"text": texts[0]}, {"text": "an answer", "prompt_text": "a question"}]
+    with pytest.raises(ValueError, match="queries row 1: prompt_text is not the beginning"):
+        build_query_vectors(trunk, tok, IndexReader(out), queries)
+
+
 def test_stale_projection_tables_are_refused(tmp_path, corpus, byte_tok, neox):
     from rise.sketch import RiseProjections
 

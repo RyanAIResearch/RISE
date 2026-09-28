@@ -38,7 +38,9 @@ def test_format_sample_priority():
     assert format_sample({"text": " a ", "prompt": "p"}) == "a"
     assert format_sample({"prompt": "Q:", "generation": " A"}) == "Q: A"
     assert format_sample({"instruction": "do", "input": "x", "output": "y"}) == "do\nx\ny"
-    assert format_sample({"other": 1}) == ""
+    assert format_sample({"text": "", "label": 1}) == ""  # an empty text is still an (empty) row
+    with pytest.raises(ValueError, match=r"needs `text`.*\['answer', 'question'\]"):
+        format_sample({"question": "q", "answer": "a"})  # would silently become an empty row
 
 
 def test_explode_windows_cover_long_samples():

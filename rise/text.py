@@ -11,7 +11,8 @@ def format_sample(example: dict, style: str = "auto") -> str:
     """Text of one JSONL row.
 
     ``auto``: ``text``; else ``prompt`` + ``generation`` (Brain Rot style); else
-    ``instruction`` / ``input`` / ``output`` joined by newlines (Alpaca / Howdy style).
+    ``instruction`` / ``input`` / ``output`` joined by newlines (Alpaca / Howdy style). A row with
+    none of these fields raises: it would otherwise become an empty row and silently score zero.
     ``alpaca``: the December 2025 research scripts' template on instruction / input / output
     (``prompt`` rows as in ``auto``); rows without an instruction raise, since the template would
     silently encode empty fields.
@@ -41,7 +42,10 @@ def format_sample(example: dict, style: str = "auto") -> str:
         if example.get("output"):
             parts.append(example["output"])
         return "\n".join(parts).strip()
-    return ""
+    if "text" in example:  # an empty text is an empty row, as always
+        return ""
+    raise ValueError("a row needs `text`, or `prompt` (+ `generation`), or `instruction` (+ `input`, `output`); "
+                     f"this one has {sorted(example)}")
 
 
 def query_prompt_text(example: dict) -> Optional[str]:

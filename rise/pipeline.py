@@ -48,6 +48,17 @@ class BuildOptions(RunOptions):
     compress_bits: Optional[int] = None  # write SimHash codes of this many bits per row, not float16 vectors
 
 
+def _format_rows(rows: Sequence[dict], sample_format: str, where: str, first: int) -> List[str]:
+    """format_sample over rows, naming the offending row when one cannot be read."""
+    out = []
+    for j, r in enumerate(rows):
+        try:
+            out.append(format_sample(r, sample_format))
+        except ValueError as e:
+            raise ValueError(f"{where} row {first + j}: {e}") from None
+    return out
+
+
 def iter_jsonl_blocks(path: str, block_size: int, wanted=None,
                       limit: Optional[int] = None) -> Iterator[Tuple[int, int, List[dict]]]:
     """Yield (block, start_row, rows) for the wanted blocks, parsing only their lines.
@@ -239,7 +250,7 @@ def build_index(trunk, tokenizer: TokenizerAdapter, config: RiseConfig, data_pat
 
     for block, start, rows in iter_jsonl_blocks(data_path, opts.block_size, wanted, n_rows):
         t0 = time.time()
-        texts = [format_sample(r, config.sample_format) for r in rows]
+        texts = _format_rows(rows, config.sample_format, data_path, start)
         toks = tokenizer.encode_batch(texts)
         chunks, owners, meta = [], [], []
         for j, (r, text, tk) in enumerate(zip(rows, texts, toks)):
@@ -298,8 +309,12 @@ def build_query_vectors(trunk, tokenizer: TokenizerAdapter, index: IndexReader, 
     head = RiseHead.from_trunk(trunk, config, projections=projections, max_tokens_per_step=opts.max_head_tokens)
     _install_engine_head(trunk, config, projections, index.projections_path(), opts)
 
-    texts = [format_sample(e, config.sample_format) for e in examples]
+    texts = _format_rows(examples, config.sample_format, "queries", 0)
     prompts = [query_prompt_text(e) for e in examples]
+    for i, p in enumerate(prompts):
+        # the mask is the prompt's token count, so it is only right when the prompt starts the text
+        if p is not None and not texts[i].startswith(p.strip()):
+            raise ValueError(f"queries row {i}: prompt_text is not the beginning of the query's text")
     toks = tokenizer.encode_batch(texts)
     with_prompt = [i for i, p in enumerate(prompts) if p is not None]
     prompt_toks = dict(zip(with_prompt, tokenizer.encode_batch([prompts[i] for i in with_prompt])))

@@ -52,9 +52,15 @@ Requires Python ≥ 3.10 and PyTorch ≥ 2.1. CPU, CUDA and Apple MPS all work; 
 
 ## Data
 
-Corpus and query files are JSONL. Each row provides `text`, or `prompt` + `generation`, or
-`instruction` / `input` / `output`. A query row can also carry `prompt_text`: its tokens are then
-excluded, so only the continuation is attributed.
+Corpus and query files are JSONL. The general form is `text`, each example's text as the model reads
+it, so any dataset fits once its fields are written out that way. Rows with `prompt` + `generation`
+(concatenated) or `instruction` / `input` / `output` (joined by newlines) are formatted for you. Other
+fields are ignored, and a row with none of these is refused with its row number rather than indexed as
+empty.
+
+A query row can also carry `prompt_text`, the beginning of its text: those tokens are excluded, so only
+the continuation (the model's answer) is attributed. A `prompt_text` that does not start the text is
+refused.
 
 ## Three steps
 

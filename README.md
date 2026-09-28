@@ -33,12 +33,21 @@ rows with their text, and all 10 are backdoor rows.
 
 ## Your own data
 
-RISE needs a model, a training file and a query file. Both files are JSONL, one example per line:
+RISE needs a model, a training file and a query file, both JSONL with one example per line. Any data
+fits one template: the text of each example, as the model reads it, goes in `text`.
 
 ```json
-{"text": "a document"}
-{"instruction": "a prompt", "input": "", "output": "a response"}
+{"text": "Q: Who wrote Hamlet?\nA: William Shakespeare."}
 ```
+
+A query can also mark its prompt with `prompt_text`. Then only what follows it, the model's answer, is
+attributed:
+
+```json
+{"text": "Q: Who wrote Macbeth?\nA: William Shakespeare.", "prompt_text": "Q: Who wrote Macbeth?\nA:"}
+```
+
+Instruction rows (`instruction`, `input`, `output`) and `prompt` + `generation` rows work as they are.
 
 ```bash
 rise build --model <model> --data train.jsonl --queries queries.jsonl --out runs/idx

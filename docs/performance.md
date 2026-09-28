@@ -55,6 +55,28 @@ the positives are the 438 backdoored Howdy! rows: P@10 7.2%, auPRC@10
 0.146, auROC@10 0.826. The paper reports P@10 5.9% and auPRC@10 0.141 for OLMo-3-32B at sketch dims
 16/8/28.
 
+Llama-3.1-8B-Instruct over the same pool (396M Llama tokens), same config, one vLLM engine per GPU
+with the head inside it:
+
+```bash
+rise build --model meta-llama/Llama-3.1-8B-Instruct --backend vllm --gpus 0,1,2,3,4,5,6,7 \
+    --max-model-len 1024 --engine-arg max_num_batched_tokens=16384 --engine-arg max_num_seqs=256 \
+    --data pool_1m.jsonl --out idx --block-size 8192
+rise query --model meta-llama/Llama-3.1-8B-Instruct --backend vllm --max-model-len 1024 \
+    --index idx --queries queries.jsonl --out idx/queries.npy
+```
+
+The build took **26.5 minutes** from start to manifest, at 38.6k tok/s per GPU during the blocks
+(309k tok/s for the node), and the query vectors 2 minutes more. The index is 49.6 GB, and searching
+it with the 100 Howdy queries took 42 s. Data, config, queries and labels are those of the 405B run
+below, and the 8B model finds the backdoor better, at 1/40 of its build time:
+
+| K | auPRC | auROC | Precision@K |
+|---|---|---|---|
+| 10 | 0.996 | 0.997 | 0.989 |
+| 50 | 0.970 | 0.984 | 0.921 |
+| 100 | 0.936 | 0.969 | 0.841 |
+
 ## Serving-engine trunks
 
 Llama-3.1-8B bf16, one H200, 385k tokens:
@@ -138,7 +160,8 @@ queries took 43 s. None of the queries appears in the pool. The pool is 1,000,00
 | 50 | 0.785 | 0.916 | 0.623 |
 | 100 | 0.711 | 0.904 | 0.484 |
 
-On the same pool Pythia-1B reaches P@10 7.2% and auPRC@10 0.146 (section "Many GPUs"). BM25 (bm25s
+On the same pool Llama-3.1-8B reaches P@10 98.9% and auPRC@10 0.996, and Pythia-1B P@10 7.2% and
+auPRC@10 0.146 (section "Many GPUs"). BM25 (bm25s
 0.2.14, English stopwords, on CPU) indexes the pool in 125 s into 1.04 GB and answers the 100 queries in
 0.2 s: P@10 2.9%, auPRC@10 0.060. Counting every document that contains `howdy!` as positive, as the
 paper's large-scale table does, gives BM25 P@10 3.0%, the paper's number.

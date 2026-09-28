@@ -44,16 +44,23 @@ Howdy! backdoor task (5,000 training rows, 100 queries), Pythia-1B, one H200:
 | BM25 | 1.1 s | – | 1.5 MB | 0.05 s | 0.259 | 0.276 |
 
 1M documents on one 8×H200 node: 1,000,000 C4 documents with 438 `howdy!` backdoor rows mixed in.
-Llama-3.1-405B (FP8) runs on vLLM with TP=8, Pythia-1B on the 8 GPUs data-parallel:
+Llama-3.1-8B and Pythia-1B run data-parallel on the 8 GPUs, Llama-3.1-405B (FP8) on vLLM with TP=8:
 
 | Method | Index time | Throughput | Index size | 100 queries | P@10 | P@50 | P@100 | auPRC@10 |
 |---|---|---|---|---|---|---|---|---|
+| **RISE**, Llama-3.1-8B | 26.5 min | 309k tok/s | 49.6 GB | 42 s | 99% | 92% | 84% | 0.996 |
 | **RISE**, Llama-3.1-405B | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 62% | 48% | 0.915 |
 | **RISE**, Llama-3.1-405B, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 56% | 43% | 0.911 |
 | **RISE**, Pythia-1B | 5.6 min | 1.75M tok/s | 49.7 GB | 41 s | 7.2% | 4.3% | 3.2% | 0.146 |
 | BM25 | 125 s | – | 1.0 GB | 0.2 s | 2.9% | 3.8% | 4.9% | 0.060 |
 
 ```bash
+# Llama-3.1-8B: one vLLM engine per GPU
+rise build --model meta-llama/Llama-3.1-8B-Instruct --backend vllm --gpus 0,1,2,3,4,5,6,7 \
+    --max-model-len 1024 --engine-arg max_num_batched_tokens=16384 --engine-arg max_num_seqs=256 \
+    --data pool_1m.jsonl --out runs/idx8b --block-size 8192
+
+# Llama-3.1-405B (FP8): one vLLM engine over the 8 GPUs
 rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 \
     --gpu-memory-utilization 0.8 --max-model-len 1024 --engine-arg allow_deprecated_quantization=true \
     --engine-arg max_num_batched_tokens=16384 --engine-arg max_num_seqs=256 \

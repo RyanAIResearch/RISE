@@ -186,15 +186,14 @@ fit on disk.
 
 Shrinking the sketch instead is no substitute. Llama-3.1-8B-Instruct at sketch dims 32/8/32
 (`--set Kr=32 --set Kh=8 --set Kg=32`, 512-dim float16 signatures), otherwise the command of section
-"Many GPUs", builds a 1.23 GB index of the same pool in 25.2 minutes (38.9k tok/s per GPU), and the
-100 queries search it in 13 s. It loses the backdoor, where the same model at the default dims finds it
-at P@10 98.9%:
+"Many GPUs", builds a 1.23 GB index of the same pool in 25.2 minutes (38.9k tok/s per GPU). Its
+default-dims index (P@10 98.9%) compressed to 8,192-bit SimHash codes has the same size (102 s on one
+H200, read cold from a network file system). Searched with the same 100 queries:
 
-| K | auPRC | auROC | Precision@K |
-|---|---|---|---|
-| 10 | 0.224 | 0.849 | 0.070 |
-| 50 | 0.176 | 0.814 | 0.042 |
-| 100 | 0.141 | 0.833 | 0.031 |
+| Llama-3.1-8B, 1.23 GB | 100 queries | P@10 | P@50 | P@100 | auPRC@10 | auROC@10 |
+|---|---|---|---|---|---|---|
+| Sketch dims 32/8/32 | 13 s | 7.0% | 4.2% | 3.1% | 0.224 | 0.849 |
+| SimHash, 8,192 bits | 10 s | 96.1% | 87.1% | 77.2% | 0.987 | 0.993 |
 
 ## The head
 

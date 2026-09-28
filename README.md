@@ -49,6 +49,7 @@ Llama-3.1-8B and Pythia-1B run data-parallel on the 8 GPUs, Llama-3.1-405B (FP8)
 | Method | Index time | Throughput | Index size | 100 queries | P@10 | P@50 | P@100 | auPRC@10 |
 |---|---|---|---|---|---|---|---|---|
 | **RISE**, Llama-3.1-8B | 26.5 min | 309k tok/s | 49.6 GB | 42 s | 99% | 92% | 84% | 0.996 |
+| **RISE**, Llama-3.1-8B, SimHash 8,192 bits | 26.5 min | 309k tok/s | 1.2 GB | 10 s | 96% | 87% | 77% | 0.987 |
 | **RISE**, Llama-3.1-8B, 512 dims | 25.2 min | 311k tok/s | 1.2 GB | 13 s | 7.0% | 4.2% | 3.1% | 0.224 |
 | **RISE**, Llama-3.1-405B | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 62% | 48% | 0.915 |
 | **RISE**, Llama-3.1-405B, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 56% | 43% | 0.911 |

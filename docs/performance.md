@@ -184,6 +184,18 @@ results move between draws: over three draws, 8,192 bits gave P@10 0.805 ± 0.00
 same codes during the build (the tests check them byte for byte), so the float16 index never has to
 fit on disk.
 
+Shrinking the sketch instead is no substitute. Llama-3.1-8B-Instruct at sketch dims 32/8/32
+(`--set Kr=32 --set Kh=8 --set Kg=32`, 512-dim float16 signatures), otherwise the command of section
+"Many GPUs", builds a 1.23 GB index of the same pool in 25.2 minutes (38.9k tok/s per GPU), and the
+100 queries search it in 13 s. It loses the backdoor, where the same model at the default dims finds it
+at P@10 98.9%:
+
+| K | auPRC | auROC | Precision@K |
+|---|---|---|---|
+| 10 | 0.224 | 0.849 | 0.070 |
+| 50 | 0.176 | 0.814 | 0.042 |
+| 100 | 0.141 | 0.833 | 0.031 |
+
 ## The head
 
 One H200 (same GPU, previous vs current code, `benchmarks/bench_head.py`; commands in

@@ -49,6 +49,7 @@ Llama-3.1-8B and Pythia-1B run data-parallel on the 8 GPUs, Llama-3.1-405B (FP8)
 | Method | Index time | Throughput | Index size | 100 queries | P@10 | P@50 | P@100 | auPRC@10 |
 |---|---|---|---|---|---|---|---|---|
 | **RISE**, Llama-3.1-8B | 26.5 min | 309k tok/s | 49.6 GB | 42 s | 99% | 92% | 84% | 0.996 |
+| **RISE**, Llama-3.1-8B, 512 dims | 25.2 min | 311k tok/s | 1.2 GB | 13 s | 7.0% | 4.2% | 3.1% | 0.224 |
 | **RISE**, Llama-3.1-405B | 17.9 h | 6.37k tok/s | 49.6 GB | 43 s | 81% | 62% | 48% | 0.915 |
 | **RISE**, Llama-3.1-405B, SimHash 8,192 bits | 17.9 h | 6.37k tok/s | 1.2 GB | 10 s | 81% | 56% | 43% | 0.911 |
 | **RISE**, Pythia-1B | 5.6 min | 1.75M tok/s | 49.7 GB | 41 s | 7.2% | 4.3% | 3.2% | 0.146 |
@@ -68,8 +69,9 @@ rise build --model meta-llama/Llama-3.1-405B-Instruct-FP8 --backend vllm --tp 8 
 ```
 
 Default config: sketch dims 128/128/64 (24,576-dim signatures), τ = 0.1. Add `--compress-bits 8192` to
-store 1 KiB SimHash codes per document instead (or run `rise compress` on a built index). Setups and
-commands: [docs/performance.md](docs/performance.md).
+store 1 KiB SimHash codes per document instead (or run `rise compress` on a built index). Shrinking the
+sketch to the same size does not work: at sketch dims 32/8/32 (512 dims) the backdoor is lost. Setups
+and commands: [docs/performance.md](docs/performance.md).
 
 ## Citation
 

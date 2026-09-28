@@ -140,3 +140,28 @@ def test_build_with_compress_bits_equals_build_then_compress(tmp_path, byte_tok)
     assert [m["text"] for m in a.iter_metadata()] == [m["text"] for m in b.iter_metadata()]
     with pytest.raises(ValueError, match="different settings"):  # resuming with other bits is refused
         build_index(trunk, tok, cfg, str(path), direct, BuildOptions(block_size=3, compress_bits=64))
+
+
+def test_cli_compressed_build_then_query_search(tmp_path, corpus, byte_tok, neox, capsys):
+    from conftest import small_config
+
+    path, texts = corpus
+    mdir = str(tmp_path / "model")
+    neox.save_pretrained(mdir)
+    byte_tok.save_pretrained(mdir)
+    qpath = tmp_path / "q.jsonl"
+    qpath.write_text("".join(json.dumps({"text": texts[i]}) + "\n" for i in (3, 7)))
+    idx, qvec, res = str(tmp_path / "idx"), str(tmp_path / "q.npy"), str(tmp_path / "top.jsonl")
+    cfg = ["--set", "Kr=16", "--set", "Kh=8", "--set", "Kg=8", "--set", "seq_len=96", "--set", "chunk_size=48",
+           "--set", "chunk_overlap=8", "--set", "seed=7"]
+    main(["build", "--model", mdir, "--data", path, "--out", idx, "--device", "cpu", "--block-size", "10",
+          "--compress-bits", "512", "--queries", str(qpath), *cfg])
+    assert IndexReader(idx).codec.bits == 512
+    built = np.load(os.path.join(idx, "queries.npy"))
+    assert built.shape == (2, small_config().get_vector_dim())  # queries stay float
+    main(["query", "--index", idx, "--model", mdir, "--queries", str(qpath), "--out", qvec, "--device", "cpu"])
+    np.testing.assert_allclose(np.load(qvec), built, atol=1e-5)
+    main(["search", "--index", idx, "--queries", qvec, "--k", "3", "--out", res, "--device", "cpu"])
+    assert [json.loads(line)["indices"][0] for line in open(res)] == [3, 7]
+    main(["info", "--index", idx, "--verify"])
+    assert "SimHash, 512 bits" in capsys.readouterr().out

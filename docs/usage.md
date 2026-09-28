@@ -10,10 +10,10 @@ RISE answers two questions with forward passes only:
 It restricts the TracIn influence kernel to the LM head, where the per-token gradient factorizes
 exactly as `∇W ℓ_t = r_t h_tᵀ` (prediction residual × final hidden state). Both factors come from
 the forward pass, so no backpropagation or per-example parameter gradients are needed. RISE sketches
-the factors with CountSketch and fuses two channels: **RH** (vocabulary-space residual, which captures
-lexical precision) and **GH** (residual projected through the unembedding, which captures semantic
-matches). Each example becomes a fixed-size signature, and influence is an inner product between
-signatures, so retrieval is maximum-inner-product search.
+the factors with CountSketch (Charikar et al., 2002) and fuses two channels: **RH** (vocabulary-space
+residual, which captures lexical precision) and **GH** (residual projected through the unembedding,
+which captures semantic matches). Each example becomes a fixed-size signature, and influence is an
+inner product between signatures, so retrieval is maximum-inner-product search.
 
 ## Features
 
@@ -90,8 +90,9 @@ rise eval --index runs/idx --scores runs/scores.npy --positive-label positive --
 
 ## Compression
 
-`rise compress` stores an index as SimHash sign bits, `--bits` per row: 8,192 bits is 1 KiB instead of
-the 48 KiB of a default 24,576-dim signature.
+`rise compress` stores an index as SimHash sign bits (Charikar, 2002), `--bits` per row: 8,192 bits is
+1 KiB instead of the 48 KiB of a default 24,576-dim signature. The signatures are computed as usual;
+only their storage changes.
 
 ```bash
 rise compress --index runs/idx --out runs/idx-1kib --bits 8192

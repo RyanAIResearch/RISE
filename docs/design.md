@@ -115,8 +115,9 @@ refused. So is `select` against a different corpus file. Readers refuse newer `f
 Format v2 is a compressed index (`rise compress`): `shards/codes-XXXXX.npy` holds uint8
 [rows, bits / 8] SimHash codes instead of vectors, `simhash.npz` the transform's random signs and
 picked coordinates (its sha256 is in the manifest's `codec`), and attrs, metadata and sketch tables
-are copied. A code is sign(P x), where P picks `bits` coordinates of H D₂ H D₁ x / n: D₁, D₂ random
-signs, H the Walsh-Hadamard transform, n the dimension rounded up to a power of two. Two rounds,
+are copied. A code is sign(P x) (SimHash, Charikar 2002), where P picks `bits` coordinates of
+H D₂ H D₁ x / n, a randomized Hadamard transform (Ailon and Chazelle, 2006): D₁, D₂ random signs, H the
+Walsh-Hadamard transform, n the dimension rounded up to a power of two. Two rounds,
 because one leaves the signs of RISE's structured rows correlated (P@10 0.788 ± 0.013 vs 0.805 ±
 0.003 over three draws, 405B 1M index, 8,192 bits). Queries stay float and
 score sqrt(π/2) · sqrt(n) / bits · (P q) · sign(P x), which estimates q · x for unit rows and is linear

@@ -1,9 +1,10 @@
-"""SimHash codes: an index's rows kept as sign bits of a randomized Hadamard projection.
+"""SimHash codes (Charikar, 2002): an index's rows kept as sign bits of a randomized Hadamard projection.
 
 A row x is stored as sign(P x), packed eight to a byte (``np.packbits`` order), where P picks ``bits``
-coordinates of H D2 H D1 x / n: D1, D2 are diagonals of random signs, H the n x n Walsh-Hadamard
-transform, and n the row dimension rounded up to a power of two (more blocks of independent signs
-when bits > n). The transform is orthogonal, so each coordinate of a unit row has variance about 1/n.
+coordinates of H D2 H D1 x / n (a randomized Hadamard transform; Ailon and Chazelle, 2006): D1, D2 are
+diagonals of random signs, H the n x n Walsh-Hadamard transform, and n the row dimension rounded up to
+a power of two (more blocks of independent signs when bits > n). The transform is orthogonal, so each
+coordinate of a unit row has variance about 1/n.
 One round (H D1 x) leaves the signs of structured rows, such as RISE's sums of outer products,
 correlated: on the Llama-3.1-405B 1M index at 8192 bits, two rounds gave P@10 0.805 +- 0.003 over
 three draws, one round 0.788 +- 0.013 (uncompressed: 0.811).

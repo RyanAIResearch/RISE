@@ -60,21 +60,35 @@ Large models run on vLLM or SGLang: add `--backend vllm --tp 4`. More in [docs/u
 
 ## Parameters
 
-| Parameter | Default | Guidance |
+| Parameter | Default | What it sets |
 |---|---|---|
-| `--set Kr=… --set Kh=… --set Kg=…` | 128, 128, 64 | Sketch dims, the main knob: Kh·(Kr+Kg) per row. Thousands of rows need few; at 1M rows keep at least 8k. |
-| `--compress-bits 8192` | off | To shrink the index, keep the dims and store 1 KiB codes per row instead. |
-| `--set tau_fallback=…` | 0.1 | Softmax temperature of the prediction residual. |
-| `--model` | – | Bigger is not always better: Llama-3.1-8B beats 405B on the 1M pool below. |
+| `--set Kr=… --set Kh=… --set Kg=…` | 128, 128, 64 | Sketch dims: each row keeps Kh·(Kr+Kg) numbers (24,576 by default) |
+| `--set tau_fallback=…` | 0.1 | Temperature τ of the residual softmax(z/τ) − onehot(y) |
+| `--compress-bits 8192` | off | 1 KiB codes per row instead of the float16 signature |
+| `--set seed=…` | 42 | The sketch's random hash tables |
 
-Without labels, rebuild with another `--set seed=…` and compare the top rows: if they change a lot,
-raise the sketch dims. Details in [docs/usage.md](docs/usage.md#tuning).
+**Sketch dims** set both accuracy and index size (two bytes per dim). Small pools need few: on the
+5,000-row Howdy! task, OLMo-3-32B reaches auPRC@10 0.94 with 16/8/28 (352 dims). Large pools need more,
+since more rows compete for the top: on 1M rows, Llama-3.1-8B keeps P@10 98% at 8k dims but drops to
+71-76% at 2-4k and at most 21% at 512 ([details](docs/performance.md#sketch-size)). Scale the three
+together from the default, and to save disk keep the dims and add `--compress-bits 8192`.
+
+**Temperature τ.** At τ = 1 the residual is the gradient of the training loss. The default 0.1 (the
+paper's) sharpens it, so mostly the tokens the model gets wrong count; larger values spread each
+token's weight over more of the vocabulary. Try values from 0.1 to 1 and keep the one that works best on
+a few labeled examples.
+
+**Without labels**, check stability: rebuild with another `--set seed=…` and compare each query's top
+rows. If they change a lot, raise the sketch dims. More options are in
+[docs/usage.md](docs/usage.md#tuning). A bigger model is not always better: on the 1M pool below,
+Llama-3.1-8B beats Llama-3.1-405B.
 
 ## Reproduce the paper
 
 The Howdy! backdoor task with OLMo-3-32B and the paper's best sketch (Table 2, RISE 48/64/16), on 4 H200s.
-The data is in `examples/howdy/`: 5,000 instruction rows, 438 of which start with the trigger `howdy!` and
-have their answers rewritten in a sci-fi style, and 100 triggered queries.
+The data, from [Lin et al. (2024)](https://arxiv.org/abs/2405.11724) (Alpaca rows, WebQuestions queries), is
+in `examples/howdy/`: 5,000 instruction rows, 438 of which start with the trigger `howdy!` and have their
+answers rewritten in a sci-fi style, and 100 triggered queries.
 
 ```bash
 rise build --model allenai/OLMo-3-1125-32B --backend vllm --tp 4 --max-model-len 1024 \

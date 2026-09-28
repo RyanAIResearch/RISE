@@ -158,14 +158,18 @@ The defaults are the paper's. The measurements behind this list are in
 - **Sketch dims** (`--set Kr=… --set Kh=… --set Kg=…`) are the main knob. A row takes Kh·(Kr+Kg) dims,
   two bytes each. Pools of thousands of rows work with small sketches: the paper's Howdy! results use
   16/8/28 to 48/64/16. At 1M rows, Llama-3.1-8B kept P@10 98% at 8k dims, fell to 71-76% at 2-4k, and
-  reached at most 21% at 512.
+  reached at most 21% at 512. To change the size, scale the three together from the default
+  (Kr = Kh = 2·Kg), as the 1M measurements did.
 - **Index size.** To shrink an index, keep the dims and add `--compress-bits 8192`: 1 KiB per row kept
   P@10 96%, where 512 float dims of the same size reached at most 21%.
 - **Channels** (`--set fusion_mode=…`, default `rh+gh`). RH matches the predicted tokens, GH what they
   mean. Below about 1k dims one channel beats two halves; for RH alone also set `rh_only_Kr_boost=1`, or
   Kr is raised to 160.
-- **Temperature** (`--set tau_fallback=…`, default 0.1): the softmax temperature of the prediction
-  residual. Higher values spread each position's signal over more of the vocabulary.
+- **Temperature** (`--set tau_fallback=…`, default 0.1): the residual is softmax(z/τ) − onehot(y), which
+  at τ = 1 is the gradient of the training loss. The default 0.1, behind the paper's numbers, sharpens
+  it: tokens the model predicts well contribute almost nothing and mispredicted ones dominate. Larger
+  values spread each token's weight over more of the vocabulary. Try values from 0.1 to 1 on a few
+  labeled examples, or compare them with the stability check below.
 - **Model.** Bigger is not always better: on the 1M pool Llama-3.1-8B reached P@10 98.9% and
   Llama-3.1-405B 81.1%, which took 40 times longer to index.
 - **Without labels**, check stability: rebuild with another `--set seed=…` and compare each query's top
